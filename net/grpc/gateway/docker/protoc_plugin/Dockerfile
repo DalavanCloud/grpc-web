@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:14.04
+FROM grpcweb/prereqs
 
 ARG MAKEFLAGS=-j8
 
@@ -23,21 +23,14 @@ RUN apt-get -qq update && apt-get -qq install -y \
   curl \
   git \
   libtool \
-  libpcre3-dev \
   libssl-dev \
   make \
-  software-properties-common \
   zip
 
-RUN git clone https://github.com/grpc/grpc-web /github/grpc-web
+WORKDIR /github/grpc-web
 
-COPY ./javascript /github/grpc-web/javascript
+RUN cd ./third_party/grpc/third_party/protobuf && \
+  ./autogen.sh && ./configure && make && make install && ldconfig
 
-RUN cd /github/grpc-web && \
-  ./scripts/init_submodules.sh
-
-RUN cd /github/grpc-web/third_party/grpc/third_party/protobuf && \
-  ./autogen.sh && ./configure && make && make install
-
-RUN cd /github/grpc-web/javascript/net/grpc/web && \
+RUN cd ./javascript/net/grpc/web && \
   make protoc-gen-grpc-web

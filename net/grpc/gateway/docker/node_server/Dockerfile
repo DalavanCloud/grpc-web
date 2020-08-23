@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM grpcweb/common
+FROM grpcweb/prereqs
 
-RUN cd /github/grpc-web/net/grpc/gateway/examples/echo/node-server && \
-  npm install
+WORKDIR /github/grpc-web/net/grpc/gateway/examples/echo/node-server
+
+RUN npm install
 
 EXPOSE 9090
-CMD ["node", "/github/grpc-web/net/grpc/gateway/examples/echo/node-server/server.js"]
+CMD ["node", "server.js"]

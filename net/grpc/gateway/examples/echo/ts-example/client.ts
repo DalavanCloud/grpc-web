@@ -31,11 +31,10 @@ import {EchoRequest, EchoResponse, ServerStreamingEchoRequest, ServerStreamingEc
 class EchoApp {
   static readonly INTERVAL = 500;  // ms
   static readonly MAX_STREAM_MESSAGES = 50;
-  echoService_: EchoServiceClient;
 
-  constructor(echoService: EchoServiceClient) {
-    this.echoService_ = echoService;
-  }
+  stream?: grpcWeb.ClientReadableStream<ServerStreamingEchoResponse>;
+
+  constructor(public echoService: EchoServiceClient) {}
 
   static addMessage(message: string, cssClass: string) {
     $('#first').after($('<div/>').addClass('row').append($('<h2/>').append(
@@ -54,7 +53,7 @@ class EchoApp {
     EchoApp.addLeftMessage(msg);
     const request = new EchoRequest();
     request.setMessage(msg);
-    const call = this.echoService_.echo(
+    const call = this.echoService.echo(
         request, {'custom-header-1': 'value1'},
         (err: grpcWeb.Error, response: EchoResponse) => {
           if (err) {
@@ -76,19 +75,27 @@ class EchoApp {
     });
   }
 
-  echoError(msg: string) {
-    EchoApp.addLeftMessage(msg);
+  echoError() {
+    EchoApp.addLeftMessage('Error');
     const request = new EchoRequest();
-    request.setMessage(msg);
-    this.echoService_.echoAbort(
+    request.setMessage('error');
+    this.echoService.echoAbort(
         request, {}, (err: grpcWeb.Error, response: EchoResponse) => {
           if (err) {
             if (err.code !== grpcWeb.StatusCode.OK) {
               EchoApp.addRightMessage(
-                  'Error code: ' + err.code + ' "' + err.message + '"');
+                  'Error code: ' + err.code + ' "' + decodeURI(err.message) +
+                  '"');
             }
           }
         });
+  }
+
+  cancel() {
+    EchoApp.addLeftMessage('Cancel');
+    if (this.stream) {
+      this.stream.cancel();
+    }
   }
 
   repeatEcho(msg: string, count: number) {
@@ -101,23 +108,23 @@ class EchoApp {
     request.setMessageCount(count);
     request.setMessageInterval(EchoApp.INTERVAL);
 
-    const stream = this.echoService_.serverStreamingEcho(
+    this.stream = this.echoService.serverStreamingEcho(
         request, {'custom-header-1': 'value1'});
     const self = this;
-    stream.on('data', (response: ServerStreamingEchoResponse) => {
+    this.stream.on('data', (response: ServerStreamingEchoResponse) => {
       EchoApp.addRightMessage(response.getMessage());
     });
-    stream.on('status', (status: grpcWeb.Status) => {
+    this.stream.on('status', (status: grpcWeb.Status) => {
       if (status.metadata) {
         console.log('Received metadata');
         console.log(status.metadata);
       }
     });
-    stream.on('error', (err: grpcWeb.Error) => {
+    this.stream.on('error', (err: grpcWeb.Error) => {
       EchoApp.addRightMessage(
           'Error code: ' + err.code + ' "' + err.message + '"');
     });
-    stream.on('end', () => {
+    this.stream.on('end', () => {
       console.log('stream end signal received');
     });
   }
@@ -132,11 +139,13 @@ class EchoApp {
       const count = msg.substr(0, msg.indexOf(' '));
       if (/^\d+$/.test(count)) {
         this.repeatEcho(msg.substr(msg.indexOf(' ') + 1), Number(count));
-      } else if (count === 'err') {
-        this.echoError(msg.substr(msg.indexOf(' ') + 1));
       } else {
         this.echo(msg);
       }
+    } else if (msg === 'error') {
+      this.echoError();
+    } else if (msg === 'cancel') {
+      this.cancel();
     } else {
       this.echo(msg);
     }

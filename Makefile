@@ -9,6 +9,7 @@ PROTOC := $(PROTO_SRC)/protoc
 GRPC_INC := $(ROOT_DIR)/third_party/grpc/include
 GRPC_SRC := $(ROOT_DIR)/third_party/grpc
 GRPC_LIB := $(ROOT_DIR)/third_party/grpc/libs/opt
+ABSL_SRC := $(ROOT_DIR)/third_party/grpc/third_party/abseil-cpp
 
 all: clean package_static
 
@@ -19,20 +20,30 @@ protos:
 --cpp_out="$(GRPC_GATEWAY_PROTOS)"
 	cd "$(ROOT_DIR)" && LD_LIBRARY_PATH="$(PROTO_LIB):$(GRPC_LIB)" "$(PROTOC)" \
 --proto_path="$(GRPC_GATEWAY_PROTOS)" \
---proto_path="$(PROTO_SRC)" "$(GRPC_GATEWAY_PROTOS)/stream_body.proto" \
+--proto_path="$(ROOT_DIR)/third_party/grpc/src/proto/grpc/status" \
+--proto_path="$(PROTO_SRC)" "status.proto" \
 --cpp_out="$(GRPC_GATEWAY_PROTOS)"
+	mkdir -p "$(ROOT_DIR)"/google/rpc
+	cd "$(ROOT_DIR)" && LD_LIBRARY_PATH="$(PROTO_LIB):$(GRPC_LIB)" "$(PROTOC)" \
+--proto_path="$(GRPC_GATEWAY_PROTOS)" \
+--proto_path="$(ROOT_DIR)/third_party/grpc/src/proto/grpc/status" \
+--proto_path="$(PROTO_SRC)" "status.proto" \
+--cpp_out="$(ROOT_DIR)/google/rpc"
 
 NGINX_DIR := third_party/nginx
-NGINX_LD_OPT := -L"$(PROTO_LIB)" -L"$(GRPC_LIB)" -lgrpc++ \
--lgrpc -lprotobuf -lpthread -ldl -lrt -lstdc++ -lm
+NGINX_LD_OPT := -L"$(PROTO_LIB)" -L"$(GRPC_LIB)" \
+-lgrpc++ -lgrpc -lprotobuf \
+-labsl_str_format_internal -labsl_int128 \
+-lpthread -ldl -lrt -lstdc++ -lm
 ifeq ($(OS), Darwin)
 NGINX_LD_OPT := -L"$(PROTO_LIB)" -L"$(GRPC_LIB)" -lgrpc++ \
 -lgrpc -lprotobuf -lpthread -lstdc++ -lm
 endif
 
 NGINX_STATIC_LD_OPT := -L"$(PROTO_LIB)" -L"$(GRPC_LIB)" \
--l:libgrpc++.a -l:libgrpc.a -l:libprotobuf.a -lpthread -ldl \
--lrt -lstdc++ -lm
+-l:libgrpc++.a -l:libgrpc.a -l:libprotobuf.a \
+-labsl_str_format_internal -labsl_int128 \
+-lpthread -ldl -lrt -lstdc++ -lm
 ifeq ($(OS), Darwin)
 NGINX_STATIC_LD_OPT := $(NGINX_LD_OPT)
 endif
@@ -43,7 +54,7 @@ nginx_config:
 	--with-http_ssl_module \
 	--with-http_v2_module \
 	--with-cc-opt="-I /usr/local/include -I $(ROOT_DIR) -I $(PROTO_INC) -I $(PROTO_SRC) \
--I $(GRPC_INC) -I $(GRPC_SRC)" \
+-I $(GRPC_INC) -I $(GRPC_SRC) -I $(ABSL_SRC)" \
 	--with-ld-opt="$(NGINX_LD_OPT)" \
 	--with-openssl="$(ROOT_DIR)/third_party/openssl" \
 	--add-module="$(ROOT_DIR)/net/grpc/gateway/nginx"
@@ -54,7 +65,7 @@ nginx_config_static:
 	--with-http_ssl_module \
 	--with-http_v2_module \
 	--with-cc-opt="-I /usr/local/include -I $(ROOT_DIR) -I $(PROTO_INC) -I $(PROTO_SRC) \
--I $(GRPC_INC) -I $(GRPC_SRC)" \
+-I $(GRPC_INC) -I $(GRPC_SRC) -I $(ABSL_SRC)" \
 	--with-ld-opt="$(NGINX_STATIC_LD_OPT)" \
 	--add-module="$(ROOT_DIR)/net/grpc/gateway/nginx"
 

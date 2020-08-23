@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM grpcweb/prereqs
+FROM grpcweb/grpc-base
 
-RUN cd /github/grpc-web && \
-  make echo_server
+WORKDIR /github/grpc-web
+
+RUN make echo_server
+
+WORKDIR /github/grpc-web/net/grpc/gateway/examples/echo
 
 EXPOSE 9090
-CMD ["/github/grpc-web/net/grpc/gateway/examples/echo/echo_server"]
+CMD ["./echo_server"]
